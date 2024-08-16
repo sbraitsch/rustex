@@ -1,0 +1,23 @@
+#rustex {
+    border: 1px solid black;
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f0f0f0;
+}
+
+.overlay {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
