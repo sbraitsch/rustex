@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
@@ -33,6 +34,7 @@ pub struct Rustex {
     pub vertex_buffer: Vec<f32>,
     pub mouse_x: f32,
     pub mouse_y: f32,
+    pub programs: HashMap<String, WebGlProgram>,
 }
 
 impl Rustex {
@@ -58,59 +60,91 @@ impl Rustex {
             .unwrap();
         gl.viewport(0, 0, canvas.width() as i32, canvas.height() as i32);
 
+        let mut programs = HashMap::new();
+        programs.insert(String::from("vertex"), create_vertex_program(&gl));
+
         let rustex = Rc::new(RefCell::new(Rustex {
             gl,
             canvas,
             vertex_buffer: vec![],
             mouse_x: 0.0,
             mouse_y: 0.0,
+            programs,
         }));
-        {
-            let click_clone = rustex.clone();
-            let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
-                let x = ((event.client_x() - x_offset) as f32 / c_width as f32) * 2.0 - 1.0;
-                let y = ((event.client_y() - y_offset) as f32 / c_height as f32) * -2.0 + 1.0;
-                log(&format!("x: {x}, y: {y}"));
-                place_vertex(&click_clone, x, y);
-            }) as Box<dyn FnMut(_)>);
-
-            rustex
-                .borrow()
-                .canvas
-                .add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())
-                .unwrap();
-            closure.forget();
-        }
-        {
-            let move_clone = rustex.clone();
-            let mouse_closure = Closure::wrap(Box::new(move |event: MouseEvent| {
-                let x = (event.client_x() as f32 / c_width as f32) * 2.0 - 1.0;
-                let y = (event.client_y() as f32 / c_height as f32) * -2.0 + 1.0;
-                //log(&format!("x: {x}, y: {y}"));
-            }) as Box<dyn FnMut(_)>);
-
-            rustex
-                .borrow()
-                .canvas
-                .add_event_listener_with_callback(
-                    "mousemove",
-                    mouse_closure.as_ref().unchecked_ref(),
-                )
-                .unwrap();
-            mouse_closure.forget();
-        }
+        add_click_listener(&rustex, x_offset, c_width, y_offset, c_height);
+        add_mouse_listener(&rustex, c_width, c_height);
     }
 }
 
-fn prepare_vertex_buffer(gl: &GL) {
+fn add_mouse_listener(rustex: &Rc<RefCell<Rustex>>, c_width: u32, c_height: u32) {
+    let move_clone = rustex.clone();
+    let mouse_closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+        let x = (event.client_x() as f32 / c_width as f32) * 2.0 - 1.0;
+        let y = (event.client_y() as f32 / c_height as f32) * -2.0 + 1.0;
+        //log(&format!("x: {x}, y: {y}"));
+    }) as Box<dyn FnMut(_)>);
+
+    rustex
+        .borrow()
+        .canvas
+        .add_event_listener_with_callback("mousemove", mouse_closure.as_ref().unchecked_ref())
+        .unwrap();
+    mouse_closure.forget();
+}
+
+fn add_click_listener(
+    rustex: &Rc<RefCell<Rustex>>,
+    x_offset: i32,
+    c_width: u32,
+    y_offset: i32,
+    c_height: u32,
+) {
+    let rustex_clone = rustex.clone();
+    let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+        let x = ((event.client_x() - x_offset) as f32 / c_width as f32) * 2.0 - 1.0;
+        let y = ((event.client_y() - y_offset) as f32 / c_height as f32) * -2.0 + 1.0;
+        log(&format!("x: {x}, y: {y}"));
+        place_vertex(&rustex_clone, x, y);
+    }) as Box<dyn FnMut(_)>);
+
+    rustex
+        .borrow()
+        .canvas
+        .add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())
+        .unwrap();
+    closure.forget();
+}
+
+fn place_vertex(rustex: &Rc<RefCell<Rustex>>, x: f32, y: f32) {
+    use_vertex_program(rustex);
+    rustex.borrow_mut().vertex_buffer.push(x);
+    rustex.borrow_mut().vertex_buffer.push(y);
+    unsafe {
+        let vertex_array = js_sys::Float32Array::view(&rustex.borrow().vertex_buffer);
+        rustex.borrow().gl.buffer_data_with_array_buffer_view(
+            GL::ARRAY_BUFFER,
+            &vertex_array,
+            GL::STATIC_DRAW,
+        );
+        rustex
+            .borrow()
+            .gl
+            .draw_arrays(GL::POINTS, 0, (vertex_array.length() / 2) as i32);
+    }
+}
+
+fn create_vertex_program(gl: &GL) -> WebGlProgram {
     let vert_shader = compile_shader(&gl, GL::VERTEX_SHADER, VERT_SHADER).unwrap();
     let frag_shader = compile_shader(&gl, GL::FRAGMENT_SHADER, FRAG_SHADER).unwrap();
-
-    let program = link_program(&gl, &vert_shader, &frag_shader).unwrap();
-    gl.use_program(Some(&program));
-
     let buffer = gl.create_buffer().ok_or("Failed to create buffer").unwrap();
     gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer));
+    link_program(&gl, &vert_shader, &frag_shader).unwrap()
+}
+
+fn use_vertex_program(rustex: &Rc<RefCell<Rustex>>) {
+    let gl = &rustex.borrow().gl;
+    let program = &rustex.borrow().programs["vertex"];
+    gl.use_program(Some(&program));
 
     let coord = gl.get_attrib_location(&program, "coordinates") as u32;
     gl.enable_vertex_attrib_array(coord);
@@ -159,24 +193,6 @@ fn link_program(
             &gl.get_program_info_log(&shader_program)
                 .unwrap_or_else(|| "Unknown error linking program".into()),
         ));
-    }
-}
-
-fn place_vertex(rustex: &Rc<RefCell<Rustex>>, x: f32, y: f32) {
-    prepare_vertex_buffer(&rustex.borrow().gl);
-    rustex.borrow_mut().vertex_buffer.push(x);
-    rustex.borrow_mut().vertex_buffer.push(y);
-    unsafe {
-        let vertex_array = js_sys::Float32Array::view(&rustex.borrow().vertex_buffer);
-        rustex.borrow().gl.buffer_data_with_array_buffer_view(
-            GL::ARRAY_BUFFER,
-            &vertex_array,
-            GL::STATIC_DRAW,
-        );
-        rustex
-            .borrow()
-            .gl
-            .draw_arrays(GL::POINTS, 0, (vertex_array.length() / 2) as i32);
     }
 }
 
