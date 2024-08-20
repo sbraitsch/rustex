@@ -3,7 +3,7 @@ use wgpu::{include_wgsl, RenderPipeline, VertexStepMode};
 use crate::data::vertex::Vertex;
 
 pub fn create(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> RenderPipeline {
-    let shader = device.create_shader_module(include_wgsl!("../shaders/shader.wgsl"));
+    let shader = device.create_shader_module(include_wgsl!("../shaders/line_shader.wgsl"));
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("Render Pipeline Layout"),
         bind_group_layouts: &[],
