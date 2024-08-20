@@ -1,14 +1,18 @@
 #rustex {
+    max-width: 1080px;
+    max-height: 1080px;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
     border: 1px solid black;
 }
 
 body {
     margin: 0;
-    height: 100vh;
     display: flex;
-    justify-content: center;
     align-items: center;
-    background-color: #f0f0f0;
+    justify-content: center;
+    background: #204060;
 }
 
 .overlay {

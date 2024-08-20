@@ -5,9 +5,13 @@
         <link rel="stylesheet" href="./style.css" />
     </head>
     <body>
-        <canvas id="rustex" width="1000" height="600"> </canvas>
         <div class="overlay" id="coords">(0.0|0.0)</div>
-        <script type="module" src="pkg/rustex.js"></script>
-        <script type="module" src="main.js"></script>
+        <canvas id="rustex"></canvas>
+        <script type="module">
+            import init from "./pkg/rustex.js";
+            init().then(() => {
+                console.log("WASM Loaded");
+            });
+        </script>
     </body>
 </html>
