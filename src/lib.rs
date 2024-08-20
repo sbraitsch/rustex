@@ -1,19 +1,12 @@
 mod data;
 mod pipelines;
 
-use data::{
-    hexagon::{self, generate_hexagon_vertices},
-    quad, triangle,
-    vertex::Vertex,
-};
-use log::warn;
-use pipelines::edge_pipeline;
+use data::vertex::Vertex;
 use wasm_bindgen::prelude::*;
 use web_sys::{Element, HtmlCanvasElement};
 use wgpu::util::DeviceExt;
 use wgpu::MemoryHints;
 use winit::{
-    dpi::PhysicalPosition,
     event::*,
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
@@ -93,7 +86,7 @@ impl<'a> State<'a> {
         let polygon_pipeline = pipelines::polygon_pipeline::create(&device, &config);
         let edge_pipeline = pipelines::edge_pipeline::create(&device, &config);
 
-        let indices = hexagon::INDICES;
+        let indices: Vec<u16> = vec![];
         let vertices: Vec<Vertex> = vec![];
 
         let num_vertices = vertices.len() as u32;
@@ -106,7 +99,7 @@ impl<'a> State<'a> {
         let num_indices = indices.len() as u32;
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(indices),
+            contents: bytemuck::cast_slice(indices.as_slice()),
             usage: wgpu::BufferUsages::INDEX,
         });
 
